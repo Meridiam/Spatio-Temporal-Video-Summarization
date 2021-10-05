@@ -16,6 +16,12 @@ def make_parser():
     parser.add_argument(
         "--save_path", default="ObjectCluster_outputs", help="pathname for results folder"
     )
+    parser.add_argument(
+        "--eps", type=int, default=50, help="DBSCAN parameter: maximum distance between two samples in neighborhood"
+    )
+    parser.add_argument(
+        "--min_samples", type=int, default=5, help="DBSCAN parameter: number of samples in neighborhood to form core point"
+    )
     return parser
 
 
@@ -47,7 +53,7 @@ def main(args):
     x = [entry["worldCenter"] for entry in points]
 
     # fit clustering over candidate object points
-    clustering = DBSCAN(eps=50)
+    clustering = DBSCAN(eps=args.eps, min_samples=args.min_samples)
     clustering.fit(x)
 
     # remove outlier class
@@ -57,8 +63,8 @@ def main(args):
     # organize clusters
     num_clusters = 0
     with open(os.path.join(save_folder, 'object_clusters'), 'w+') as f:
-        for cluster in cluster_ids:
-            mask = clustering.labels_ == cluster
+        for cluster_id in cluster_ids:
+            mask = clustering.labels_ == cluster_id
 
             cluster_points = points[mask]
 
@@ -77,17 +83,27 @@ def main(args):
 
             majority_points = []
             majority_count = 0
+            representative_point = {
+                "score": 0.0
+            }
             for point in cluster_points:
                 if point["class"] == majority_class:
                     majority_points.append(point)
                     majority_count += 1
+
+                    if point["score"] > representative_point["score"]:
+                        representative_point = point
 
             # if no majority class exists, cluster is too noisy so we skip
             if not majority_count > len(cluster_points) / 2:
                 continue
 
             num_clusters += 1
-            f.write(f'{json.dumps(majority_points)}\n')
+            cluster = {
+                "representative_point": representative_point,
+                "majority_points": majority_points
+            }
+            f.write(f'{json.dumps(cluster)}\n')
 
     logger.info(f'Found {num_clusters} class-coherent clusters')
 

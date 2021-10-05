@@ -121,8 +121,6 @@ def main(args):
         with open(os.path.join(save_folder, "tagged_points"), 'w+') as f:
             entry_idx = 0
             for line in datafile:
-                t0 = time.time()
-
                 frame_detections = json.loads(line)
                 depthmap = cv2.imread(os.path.join(args.depth_path, f'frame={frame_detections["frame_idx"]}.exr'),
                                       cv2.IMREAD_UNCHANGED)
@@ -156,6 +154,7 @@ def main(args):
                                 "center": detection["center"]
                             },
                             "class": detection["class"],
+                            "score": detection["score"],
                             "worldCenter": world_center3d.tolist()
                         })
 

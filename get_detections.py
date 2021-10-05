@@ -190,15 +190,16 @@ class Predictor(object):
         cls = output[:, 6]
         scores = output[:, 4] * output[:, 5]
 
-        data_res = record_classes_and_centers(frame_idx, bboxes, cls, self.cls_names)
+        data_res = record_classes_and_centers(frame_idx, bboxes, cls, scores, self.cls_names)
 
         vis_res = vis(img, bboxes, scores, cls, cls_conf, self.cls_names)
         return vis_res, data_res
 
 
-def record_classes_and_centers(frame_idx, bboxes, cls, cls_names):
+def record_classes_and_centers(frame_idx, bboxes, cls, scores, cls_names):
     data = [{'center': ((bboxes[i][0] + bboxes[i][2]).numpy() // 2, (bboxes[i][1] + bboxes[i][3]).numpy() // 2),
              'class': cls_names[int(cls[i])],
+             'score': scores[i].item(),
              'bbox_p0': (bboxes[i][0].item() // 1, bboxes[i][1].item() // 1),
              'bbox_p1': (bboxes[i][2].item() // 1, bboxes[i][3].item() // 1)} for i in range(len(bboxes))]
     frame_data = {'frame_idx': frame_idx, 'data': data}
