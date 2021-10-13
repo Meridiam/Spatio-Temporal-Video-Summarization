@@ -17,7 +17,7 @@ def make_parser():
         "--save_path", default="ObjectCluster_outputs", help="pathname for results folder"
     )
     parser.add_argument(
-        "--eps", type=int, default=50, help="DBSCAN parameter: maximum distance between two samples in neighborhood"
+        "--eps", type=int, default=100, help="DBSCAN parameter: maximum distance between two samples in neighborhood"
     )
     parser.add_argument(
         "--min_samples", type=int, default=5, help="DBSCAN parameter: number of samples in neighborhood to form core point"
@@ -58,7 +58,8 @@ def main(args):
 
     # remove outlier class
     cluster_ids = np.unique(clustering.labels_).tolist()
-    cluster_ids.remove(-1)
+    if -1 in cluster_ids:
+        cluster_ids.remove(-1)
 
     # organize clusters
     num_clusters = 0
