@@ -2,7 +2,6 @@
 
 # python get_detections.py images -n yolox-l -c ../../Desktop/YOLOX/models/yolox_l.pth --path
 # ..\..\Downloads\DATASET_2021_9_27_23_8_59\rgb_fixed --conf 0.35 --nms 0.45 --tsize 640 --save_result --device gpu
-# --skip 5
 
 import argparse
 import json
@@ -55,7 +54,7 @@ def make_parser():
         help="pls input your experiment description file",
     )
     parser.add_argument("-c", "--ckpt", default=None, type=str, help="ckpt for eval")
-    parser.add_argument("-s", "--skip", default=None, type=int, help="num frames to skip between samples")
+    parser.add_argument("-s", "--skip", default=0, type=int, help="num frames to skip between samples")
     parser.add_argument(
         "--device",
         default="cpu",
@@ -286,18 +285,18 @@ def images_demo(predictor, vis_folder, current_time, args):
     logger.info(f"images save_dir is {save_dir}")
 
     with open(os.path.join(save_folder, 'detections'), 'w+') as f:
-        imgs = [f for f in os.listdir(args.path)]
-        total_frames = len(imgs)
-        for frame_idx in range(total_frames):
-            frame = cv2.imread(os.path.join(args.path, f'frame={frame_idx}.jpg'), cv2.IMREAD_COLOR)
-            if frame_idx % (args.skip + 1) == 0:
+        imgs = [int(f.split(".")[0]) for f in os.listdir(args.path)]
+        total_imgs = max(imgs)
+        for img in imgs:
+            frame = cv2.imread(os.path.join(args.path, f'{img}.png'), cv2.IMREAD_COLOR)
+            if img % (args.skip + 1) == 0:
                 outputs, img_info, t = predictor.inference(frame)
 
-                logger.info('Frame {:} / {:}, Inference time: {:.4f}s'.format(frame_idx, total_frames, t))
+                logger.info('Frame {:} / {:}, Inference time: {:.4f}s'.format(img, int(total_imgs), t))
 
-                result_frame, result_data = predictor.visual(frame_idx, outputs[0], img_info, predictor.confthre)
+                result_frame, result_data = predictor.visual(img, outputs[0], img_info, predictor.confthre)
                 if args.save_result:
-                    cv2.imwrite(os.path.join(save_dir, f'{frame_idx}.jpg'), result_frame)
+                    cv2.imwrite(os.path.join(save_dir, f'{img}.jpg'), result_frame)
                     f.write(f'{json.dumps(result_data)}\n')
                 ch = cv2.waitKey(1)
                 if ch == 27 or ch == ord("q") or ch == ord("Q"):
