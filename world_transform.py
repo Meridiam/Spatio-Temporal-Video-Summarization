@@ -19,9 +19,6 @@ def make_parser():
         "--depth_path", default="", help="framewise depth map folder pathname"
     )
     parser.add_argument(
-        "--confidence_path", default="", help="framewise confidence map folder pathname"
-    )
-    parser.add_argument(
         "--framewise_path", default="", help="framewise camera pose file pathname"
     )
     parser.add_argument(
@@ -29,9 +26,6 @@ def make_parser():
     )
     parser.add_argument(
         "--save_path", default="WorldTransform_outputs", help="pathname for results folder"
-    )
-    parser.add_argument(
-        "--conf", type=float, default=0.0, help="minimum acceptable confidence level for depth"
     )
     return parser
 
@@ -51,7 +45,7 @@ def parse_intrinsics(intrinsics_pathname):
 
 
 def parse_framewise_camera_pose(framewise_pathname):
-    camera_poses = []
+    camera_poses = {}
     num_entries = 0
     with open(framewise_pathname) as f:
         logger.info(f'Parsing framewise camera poses from {framewise_pathname}')
@@ -59,7 +53,7 @@ def parse_framewise_camera_pose(framewise_pathname):
             if num_entries > 0:
                 entries = line.split(" ")
 
-                camera_poses.append({
+                camera_poses[int(entries[1])] = {
                     "frame_idx": int(entries[1]),
                     "x": float(entries[3]),
                     "y": float(entries[4]),
@@ -67,7 +61,7 @@ def parse_framewise_camera_pose(framewise_pathname):
                     "roll": float(entries[6]),
                     "pitch": float(entries[7]),
                     "yaw": float(entries[8])
-                })
+                }
 
             num_entries += 1
 
@@ -88,10 +82,6 @@ def main(args):
 
     if args.depth_path == "":
         print(f'Depth path name cannot be blank!')
-        exit(1)
-
-    if args.confidence_path == "":
-        print(f'Confidence path name cannot be blank!')
         exit(1)
 
     if args.framewise_path == "":
@@ -122,43 +112,39 @@ def main(args):
             entry_idx = 0
             for line in datafile:
                 frame_detections = json.loads(line)
-                depthmap = cv2.imread(os.path.join(args.depth_path, f'frame={frame_detections["frame_idx"]}.exr'),
+                depthmap = cv2.imread(os.path.join(args.depth_path, f'{frame_detections["frame_idx"]}.exr'),
                                       cv2.IMREAD_UNCHANGED)
-                confidencemap = cv2.imread(os.path.join(args.confidence_path,
-                                    f'frame={frame_detections["frame_idx"]}.exr'),
-                                    cv2.IMREAD_UNCHANGED)
 
                 for detection in frame_detections["data"]:
                     x_d, y_d = detection["center"]
-                    depth = depthmap[int(x_d) // 8, int(y_d) // 8, 2] * 100
+                    depth = depthmap[int(y_d) // 8, int(x_d) // 8, 2] * 100
 
-                    if confidencemap[int(x_d) // 8, int(y_d) // 8, 2] > args.conf:
-                        local_center3d = np.array([
-                            (x_d - cx_d) * depth / fx_d,
-                            (y_d - cy_d) * depth / fy_d,
-                            depth
-                        ])
+                    local_center3d = np.array([
+                        (x_d - cx_d) * depth / fx_d,
+                        (y_d - cy_d) * depth / fy_d,
+                        depth
+                    ])
 
-                        camera_pose = camera_poses[int(frame_detections["frame_idx"])]
+                    camera_pose = camera_poses[int(frame_detections["frame_idx"])]
 
-                        assert int(frame_detections["frame_idx"]) == int(camera_pose["frame_idx"])
+                    assert int(frame_detections["frame_idx"]) == int(camera_pose["frame_idx"])
 
-                        world_center3d = apply_camera_transform(camera_pose, local_center3d) \
-                            + np.array([camera_pose["x"], camera_pose["y"], camera_pose["z"]])
+                    world_center3d = apply_camera_transform(camera_pose, local_center3d) \
+                        + np.array([camera_pose["x"], camera_pose["y"], camera_pose["z"]])
 
-                        tagged_point = ({
-                            "frame_idx": int(frame_detections["frame_idx"]),
-                            "bbox": {
-                                "p0": detection["bbox_p0"],
-                                "p1": detection["bbox_p1"],
-                                "center": detection["center"]
-                            },
-                            "class": detection["class"],
-                            "score": detection["score"],
-                            "worldCenter": world_center3d.tolist()
-                        })
+                    tagged_point = ({
+                        "frame_idx": int(frame_detections["frame_idx"]),
+                        "bbox": {
+                            "p0": detection["bbox_p0"],
+                            "p1": detection["bbox_p1"],
+                            "center": detection["center"]
+                        },
+                        "class": detection["class"],
+                        "score": detection["score"],
+                        "worldCenter": world_center3d.tolist()
+                    })
 
-                        f.write(f'{json.dumps(tagged_point)}\n')
+                    f.write(f'{json.dumps(tagged_point)}\n')
 
                 entry_idx += 1
                 logger.info(f'Processed entry {entry_idx} / {num_entries}')
