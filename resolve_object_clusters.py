@@ -102,7 +102,8 @@ def main(args):
             num_clusters += 1
             cluster = {
                 "representative_point": representative_point,
-                "majority_points": majority_points
+                "majority_points": majority_points,
+                "centroid": np.mean([v["worldCenter"] for v in majority_points], axis=0).tolist()
             }
             f.write(f'{json.dumps(cluster)}\n')
 

@@ -37,10 +37,11 @@ def main(args):
             cluster_data = json.loads(line)
 
             obj = cluster_data["representative_point"]
+            p = cluster_data["centroid"]
 
             # for point in cluster_data["majority_points"]:
-            ax.scatter(obj["worldCenter"][0], obj["worldCenter"][2], c=cmap(classes.index(obj["class"])))
-            ax.annotate(f'{obj["class"]}', (obj["worldCenter"][0], obj["worldCenter"][2]))
+            ax.scatter(p[0], p[2], c=cmap(classes.index(obj["class"])))
+            ax.annotate(f'{obj["class"]}', (p[0], p[2]))
 
             cluster_idx += 1
 
