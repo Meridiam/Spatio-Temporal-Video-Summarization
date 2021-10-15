@@ -40,7 +40,7 @@ def main(args):
             p = cluster_data["centroid"]
 
             # for point in cluster_data["majority_points"]:
-            ax.scatter(p[0], p[2], c=cmap(classes.index(obj["class"])))
+            ax.scatter(p[0], p[2], color=cmap(classes.index(obj["class"])))
             ax.annotate(f'{obj["class"]}', (p[0], p[2]))
 
             cluster_idx += 1
