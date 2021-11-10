@@ -16,8 +16,8 @@ def parse_framewise_camera_pose(framewise_pathname):
                     "y": float(entries[4]),
                     "z": float(entries[5]),
                     "roll": float(entries[6]),
-                    "yaw": float(entries[7]),
-                    "pitch": float(entries[8])
+                    "pitch": float(entries[7]),
+                    "yaw": float(entries[8])
                 }
 
             num_entries += 1
