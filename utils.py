@@ -1,4 +1,6 @@
+import numpy as np
 from loguru import logger
+from scipy.spatial.transform import Rotation
 
 
 def parse_framewise_camera_pose(framewise_pathname):
@@ -38,3 +40,38 @@ def parse_intrinsics(intrinsics_pathname):
         )
 
         return float(intrinsics[0]), float(intrinsics[1]), float(intrinsics[2]), float(intrinsics[3])
+
+
+def apply_camera_transform(camera_pose, point):
+    rot = Rotation.from_euler('xyz', [camera_pose["roll"], camera_pose["pitch"], camera_pose["yaw"]], degrees=True)
+
+    return rot.apply(point)
+
+
+def image_to_world_space(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
+    local_center3d = np.array([
+        (x_d - cy_d) * depth / fy_d,
+        (y_d - cx_d) * depth / fx_d,
+        depth
+    ])
+    world_center3d = apply_camera_transform(camera_pose, local_center3d) \
+                     + np.array([camera_pose["x"], camera_pose["y"], camera_pose["z"]])
+    return world_center3d
+
+
+def apply_inverse_camera_transform(camera_pose, point):
+    translated = point - np.array([camera_pose["x"], camera_pose["y"], camera_pose["z"]])
+
+    rot = Rotation.from_euler('xyz', [camera_pose["roll"], camera_pose["pitch"], camera_pose["yaw"]], degrees=True)
+
+    return rot.inv().apply(translated)
+
+
+def world_to_image_space(camera_pose, point, fx_d, fy_d, cx_d, cy_d):
+    # get 3d pos in camera local coordinate frame
+    local_3d_pos = apply_inverse_camera_transform(camera_pose, point)
+
+    image_x = (local_3d_pos[0] * fy_d / local_3d_pos[2]) + cy_d
+    image_y = 1280 - ((local_3d_pos[1] * fx_d / local_3d_pos[2]) + cx_d)
+
+    return image_x, image_y, local_3d_pos[2]

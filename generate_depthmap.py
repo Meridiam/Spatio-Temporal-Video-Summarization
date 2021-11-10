@@ -6,12 +6,11 @@ import time
 
 import imageio
 from loguru import logger
-from scipy.spatial.transform import Rotation
 
 from sklearn.cluster import DBSCAN
 import numpy as np
 
-from utils import parse_framewise_camera_pose, parse_intrinsics
+from utils import parse_framewise_camera_pose, parse_intrinsics, world_to_image_space
 
 
 def make_parser():
@@ -81,25 +80,11 @@ def denoise_point_cloud(point_cloud):
 
     logger.info(f'Culled {orig_count - len(denoised_point_cloud)} out of {orig_count} candidate points')
 
-    return denoised_point_cloud, noise_point_cloud
+    denoised_clusters = clustering.labels_[mask]
 
+    logger.info(f'Number of clusters isolated: {len(np.unique(denoised_clusters))}')
 
-def apply_inverse_camera_transform(camera_pose, point):
-    translated = point - np.array([camera_pose["x"], camera_pose["y"], camera_pose["z"]])
-
-    rot = Rotation.from_euler('xyz', [camera_pose["roll"], camera_pose["pitch"], camera_pose["yaw"]], degrees=True)
-
-    return rot.inv().apply(translated)
-
-
-def world_to_image_space(camera_pose, point, fx_d, fy_d, cx_d, cy_d):
-    # get 3d pos in camera local coordinate frame
-    local_3d_pos = apply_inverse_camera_transform(camera_pose, point)
-
-    image_x = (local_3d_pos[0] * fy_d / local_3d_pos[2]) + cy_d
-    image_y = 1280 - ((local_3d_pos[1] * fx_d / local_3d_pos[2]) + cx_d)
-
-    return image_x, image_y, local_3d_pos[2]
+    return denoised_point_cloud, noise_point_cloud, denoised_clusters
 
 
 def main(args):
@@ -129,13 +114,16 @@ def main(args):
     with open(os.path.join(save_folder, 'raw_point_cloud'), 'w+') as f:
         f.write(f'{json.dumps(point_cloud.tolist())}')
 
-    point_cloud, noise = denoise_point_cloud(point_cloud)
+    point_cloud, noise, cluster_labels = denoise_point_cloud(point_cloud)
 
     with open(os.path.join(save_folder, 'denoised_point_cloud'), 'w+') as f:
         f.write(f'{json.dumps(point_cloud.tolist())}')
 
     with open(os.path.join(save_folder, 'noise'), 'w+') as f:
         f.write(f'{json.dumps(noise.tolist())}')
+
+    with open(os.path.join(save_folder, 'point_labels'), 'w+') as f:
+        f.write(f'{json.dumps(cluster_labels.tolist())}')
 
     # project point cloud to image space of each frame and calculate binned depth map
     fx_d, fy_d, cx_d, cy_d = parse_intrinsics(args.intrinsics_path)
