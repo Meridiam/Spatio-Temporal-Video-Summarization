@@ -17,7 +17,7 @@ def make_parser():
         "--save_path", default="ObjectCluster_outputs", help="pathname for results folder"
     )
     parser.add_argument(
-        "--eps", type=int, default=1, help="DBSCAN parameter: maximum distance between two samples in neighborhood"
+        "--eps", type=float, default=1, help="DBSCAN parameter: maximum distance between two samples in neighborhood"
     )
     parser.add_argument(
         "--min_samples", type=int, default=5, help="DBSCAN parameter: number of samples in neighborhood to form core point"
