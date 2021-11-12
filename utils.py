@@ -48,7 +48,18 @@ def apply_camera_transform(camera_pose, point):
     return rot.apply(point)
 
 
-def image_to_world_space(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
+def image_to_world_space_for_normal(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
+    local_center3d = np.array([
+        (x_d - cx_d) * depth / fx_d,
+        (y_d - cy_d) * depth / fy_d,
+        depth
+    ])
+    world_center3d = apply_camera_transform(camera_pose, local_center3d) \
+                     + np.array([camera_pose["x"], camera_pose["y"], camera_pose["z"]])
+    return world_center3d
+
+
+def image_to_world_space_for_rotated(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
     local_center3d = np.array([
         (x_d - cy_d) * depth / fy_d,
         (y_d - cx_d) * depth / fx_d,
