@@ -113,6 +113,16 @@ def main(args):
 
     raw_points = load_point_cloud(args.pcloud_path)
 
+    # calculate world space canonical clusters over all points
+    world_clustering = DBSCAN(eps=0.05, min_samples=30)
+    world_clustering.fit(raw_points)
+
+    unique, counts = np.unique(world_clustering.labels_, return_counts=True)
+    cluster_size = dict(zip(unique, counts))
+
+    canonical_cluster_size = {get_id(raw_points[idx]): cluster_size[world_clustering.labels_[idx]]
+                              for idx in range(len(world_clustering.labels_))}
+
     cluster_classes = dict()
     labelled_points = dict()
     detections_pathname = os.path.join(args.detections_path, 'detections')
@@ -140,13 +150,36 @@ def main(args):
                 points = np.array([point["point"] for point_string, point in detection["frustum_points"].items() if
                                    point_string not in removed_points])
 
-                clustering = DBSCAN(eps=0.1, min_samples=30)
+                clustering = DBSCAN(eps=0.05, min_samples=30)
                 clustering.fit(points)
 
                 # remove outlier class
                 cluster_ids = clustering.labels_.copy().tolist()
                 if -1 in cluster_ids:
                     cluster_ids.remove(-1)
+
+                # get size of each cluster within frustum
+                unique, counts = np.unique(cluster_ids, return_counts=True)
+                frustum_cluster_size = dict(zip(unique, counts))
+
+                # cull clusters which extend significantly beyond frustum
+                clusters_to_remove = []
+                for label in np.unique(cluster_ids).tolist():
+                    for idx in range(len(points)):
+                        # find canonical cluster of point in the target frustum cluster
+                        if clustering.labels_[idx] == label:
+                            point_id = get_id(points[idx])
+                            if frustum_cluster_size[label] / canonical_cluster_size[point_id] < .95:
+                                clusters_to_remove.append(label)
+
+                            break
+
+                for label in clusters_to_remove:
+                    cluster_ids.remove(label)
+
+                # if no clusters remain after culling, treat as spurious detection
+                if len(cluster_ids) == 0:
+                    break
 
                 # find label of largest cluster
                 largest_cluster = mode(cluster_ids).mode[0]
@@ -166,7 +199,8 @@ def main(args):
 
                 # if no point in the cluster is part of another object, or if supercluster does not have matching
                 #   object class, we assign them to a new cluster
-                if len(prev_clusters) == 0 or cluster_classes[mode(prev_clusters).mode[0]] != detection["detection"]["class"]:
+                if len(prev_clusters) == 0 or cluster_classes[mode(prev_clusters).mode[0]] != detection["detection"][
+                    "class"]:
                     no_points_labelled = True
                     for point in cluster_points:
                         point_id = get_id(point)
