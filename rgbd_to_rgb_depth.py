@@ -36,7 +36,7 @@ def main(args):
         data = cv2.imread(os.path.join(args.imgs_path, img), cv2.IMREAD_UNCHANGED)
 
         rgb_data = np.ndarray(shape=(data.shape[0], data.shape[1], 3), dtype=float)
-        depth_data = np.ndarray(shape=(data.shape[0], data.shape[1]), dtype=int)
+        depth_data = np.ndarray(shape=(data.shape[0], data.shape[1]), dtype=float)
         depth_data = depth_data.astype("float32")
 
         for row_idx in range(len(data)):
