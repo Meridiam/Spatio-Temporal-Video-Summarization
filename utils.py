@@ -48,7 +48,7 @@ def apply_camera_transform(camera_pose, point):
     return rot.apply(point)
 
 
-def image_to_world_space_for_normal(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
+def image_to_world_space_nonrotated(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
     local_center3d = np.array([
         (x_d - cx_d) * depth / fx_d,
         (y_d - cy_d) * depth / fy_d,
@@ -59,7 +59,7 @@ def image_to_world_space_for_normal(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy
     return world_center3d
 
 
-def image_to_world_space_for_rotated(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
+def image_to_world_space_rotated(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d):
     local_center3d = np.array([
         (x_d - cy_d) * depth / fy_d,
         (y_d - cx_d) * depth / fx_d,
@@ -84,5 +84,15 @@ def world_to_image_space(camera_pose, point, fx_d, fy_d, cx_d, cy_d):
 
     image_x = (local_3d_pos[0] * fy_d / local_3d_pos[2]) + cy_d
     image_y = 1280 - ((local_3d_pos[1] * fx_d / local_3d_pos[2]) + cx_d)
+
+    return image_x, image_y, local_3d_pos[2]
+
+
+def world_to_image_space_nonrotated(camera_pose, point, fx_d, fy_d, cx_d, cy_d):
+    # get 3d pos in camera local coordinate frame
+    local_3d_pos = apply_inverse_camera_transform(camera_pose, point)
+
+    image_x = (local_3d_pos[0] * fx_d / local_3d_pos[2]) + cx_d
+    image_y = 720 - ((local_3d_pos[1] * fy_d / local_3d_pos[2]) + cy_d)
 
     return image_x, image_y, local_3d_pos[2]
