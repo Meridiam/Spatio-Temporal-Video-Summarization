@@ -2,11 +2,13 @@ import argparse
 import json
 import os
 import time
+
+import numpy as np
 from loguru import logger
 
 import cv2
 
-from utils import parse_framewise_camera_pose, parse_intrinsics, image_to_world_space
+from utils import parse_framewise_camera_pose, parse_intrinsics, image_to_world_space_nonrotated
 
 
 def make_parser():
@@ -28,6 +30,15 @@ def make_parser():
     )
     return parser
 
+def DepthConversion(PointDepth, f):
+    H = PointDepth.shape[0]
+    W = PointDepth.shape[1]
+    i_c = np.float(H) / 2 - 1
+    j_c = np.float(W) / 2 - 1
+    columns, rows = np.meshgrid(np.linspace(0, W-1, num=W), np.linspace(0, H-1, num=H))
+    DistanceFromCenter = ((rows - i_c)**2 + (columns - j_c)**2)**(0.5)
+    PlaneDepth = PointDepth / (1 + (DistanceFromCenter / f)**2)**(0.5)
+    return PlaneDepth
 
 def main(args):
     if args.detections_path == "":
@@ -69,15 +80,20 @@ def main(args):
                 depthmap = cv2.imread(os.path.join(args.depth_path, f'{frame_detections["frame_idx"]}.exr'),
                                       cv2.IMREAD_UNCHANGED)
 
+                # add depth correction for synthetic data
+                depthmap += DepthConversion(depthmap, fx_d)
+
                 for detection in frame_detections["data"]:
                     x_d, y_d = detection["center"]
-                    depth = depthmap[int(y_d) // 8, int(x_d) // 8] # add 2 in 3rd dim when using original exrs
+                    depth = depthmap[int(y_d), int(x_d)] # add 2 in 3rd dim when using original exrs, and remove // 8 for full resolution depth images
 
                     if depth > 0:
-                        camera_pose = camera_poses[int(frame_detections["frame_idx"])]
-                        assert int(frame_detections["frame_idx"]) == int(camera_pose["frame_idx"])
+                        # need to subtract 1 and remove assertion for synthetic data
+                        camera_pose = camera_poses[int(frame_detections["frame_idx"]) - 1]
+                        # assert int(frame_detections["frame_idx"]) == int(camera_pose["frame_idx"])
 
-                        world_center3d = image_to_world_space(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d)
+                        # need _rotated version when running on datasets that had to be fixed by rotating 90 degrees
+                        world_center3d = image_to_world_space_nonrotated(camera_pose, x_d, y_d, depth, fx_d, fy_d, cy_d, cx_d)
 
                         tagged_point = ({
                             "frame_idx": int(frame_detections["frame_idx"]),
